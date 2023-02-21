@@ -21,17 +21,22 @@
 #include <cstdlib>
 #include <forward_list>
 #include "glut_text.h"
+#include <vector>
+#include <array>
 
 using namespace std;
 
 // Variaveis Globais
 #define ESC 27
+#define ENTER 13
 
 //Enumeracao com os tipos de formas geometricas
-enum tipo_forma {LIN = 1, TRI = 2, RET = 3, POL, CIR}; // Linha, Triangulo, Retangulo, Poligono, Circulo
+enum tipo_forma {LIN = 1, TRI = 2, RET = 3, POL = 4, CIR}; // Linha, Triangulo, Retangulo, Poligono, Circulo
 
 //Verifica se foi realizado o primeiro clique do mouse
 bool click1 = false;
+
+bool drawPol = false;
 
 bool drawTri1 = false, drawTri2 = false;
 
@@ -65,6 +70,9 @@ struct forma
 
 // Lista encadeada de formas geometricas
 forward_list<forma> formas;
+
+vector<vector<vertice>> polList;  // lista de polígonos
+vector<vertice> pol; // lista encadeada de vértices para o polígono atual
 
 // Funcao para armazenar uma forma geometrica na lista de formas
 // Armazena sempre no inicio da lista
@@ -107,6 +115,16 @@ void pushTri(int x1,int y1, int x2,int y2, int x3, int y3){
 	pushVertice(x3, y3);
 }
 
+void pushPOL(std::vector<vertice> &pts){
+	pushForma(POL);
+	printf("PUSHPOL\n");
+    for (std::vector<vertice>::iterator v = pts.begin(); v != pts.end(); ++v) {
+        pushVertice(v->x, v->y);
+        printf("formas adicionadas: (%d, %d)\n", v->x, v->y);
+    }
+}
+
+// 
 /*
  * Declaracoes antecipadas (forward) das funcoes (assinaturas das funcoes)
  */
@@ -124,6 +142,8 @@ void drawFormas();
 void bresenham(int x1, int y1, int x2, int y2);
 void RETbresenham(int x1, int y1, int x2, int y2);
 void TRIbresenham(int x1, int y1, int x2, int y2, int x3, int y3);
+void POLbresenham(vector<vertice> &pts);
+
 /*
  * Funcao principal
  */
@@ -146,6 +166,7 @@ int main(int argc, char** argv)
 	glutAddMenuEntry("Linha", LIN);
    glutAddMenuEntry("Retangulo", RET);
    glutAddMenuEntry("Triangulo", TRI);
+   glutAddMenuEntry("Poligono", POL);
    glutAddMenuEntry("Limpar", -1);
 	glutAddMenuEntry("Sair", 0);
 	glutAttachMenu(GLUT_RIGHT_BUTTON);
@@ -208,6 +229,7 @@ void menu_popup(int value)
 	if(value == -1){
 		glClear(GL_COLOR_BUFFER_BIT);
 		formas.clear(); // Remove todas as formas da list
+		pol.clear();
 	}
 	modo = value;
 	// printf("%d", modo);
@@ -224,8 +246,14 @@ void keyboard(unsigned char key, int x, int y)
 	case ESC:
 		exit(EXIT_SUCCESS);
 		break;
+	case ENTER:
+		drawPol = true;
+		printf ("ENTER\n");
+		break;
+		
 	}
 }
+
 
 /*
  * Controle dos botoes do mouse
@@ -308,6 +336,25 @@ void mouse(int button, int state, int x, int y)
 				}
 			}
 			break;
+		case POL:
+			if (state == GLUT_DOWN){
+				vertice vi = {x, height - y - 1};
+				// currentPt = std::array<int, 2>{x, height - y - 1}; 
+				if(!drawPol){
+					// limpa a lista de vértices
+                    // polyList.clear();
+					pol.push_back(vi);
+					pushPOL(pol);
+					printf("Clique (%d, %d)\n", x, height - y - 1);
+					glutPostRedisplay();
+				}else{
+					pol.clear();
+					pol.push_back(vi);
+					drawPol = false;
+					glutPostRedisplay();					
+				}
+			}
+			break;
 		}
 		break;
 
@@ -353,14 +400,17 @@ void drawFormas()
 {
 	//Apos o primeiro clique, desenha a reta com a posicao atual do mouse
 	if(click1) bresenham(x_1, y_1, m_x, m_y);
-	if(drawRet) RETbresenham(x_1, y_1, m_x, m_y);
-	if(drawTri1) bresenham(x_1, y_1, m_x, m_y);
-	if(drawTri2) TRIbresenham(x_1, y_1, x_2, y_2 ,m_x, m_y);
+	else if(drawRet) RETbresenham(x_1, y_1, m_x, m_y);
+	else if(drawTri1) bresenham(x_1, y_1, m_x, m_y);
+	else if(drawTri2) TRIbresenham(x_1, y_1, x_2, y_2 ,m_x, m_y);
+	// else if(!drawPol) POLbresenham(polyList);
 
 	//Percorre a lista de formas geometricas para desenhar
 	for(forward_list<forma>::iterator f = formas.begin(); f != formas.end(); f++)
 	{
-		int i=0 ,  x[3], y[3];
+		int i=0;
+		std::vector<int> x;
+	    std::vector<int> y;
 		switch (f->tipo)
 		{
 			case LIN:
@@ -369,8 +419,8 @@ void drawFormas()
 				//Percorre a lista de vertices da forma linha para desenhar
 				for(forward_list<vertice>::iterator v = f->v.begin(); v != f->v.end(); v++, i++)
 				{
-					x[i] = v->x;
-					y[i] = v->y;
+					x.push_back(v->x); 
+					y.push_back(v->y); 
 				}
 				//Desenha o segmento de reta apos dois cliques
 				bresenham(x[0], y[0], x[1], y[1]);
@@ -380,8 +430,8 @@ void drawFormas()
 				//Percorre a lista de vertices da forma linha para desenhar
 				for(forward_list<vertice>::iterator v = f->v.begin(); v != f->v.end(); v++, i++)
 				{
-					x[i] = v->x;
-					y[i] = v->y;
+					x.push_back(v->x); 
+					y.push_back(v->y); 
 				}
 				//Desenha o quadrilatero apos dois cliques
 				RETbresenham(x[0], y[0], x[1], y[1]);
@@ -389,11 +439,19 @@ void drawFormas()
 			case TRI:
 				for(forward_list<vertice>::iterator v = f->v.begin(); v != f->v.end(); v++, i++)
 				{
-					x[i] = v->x;
-					y[i] = v->y;
+					x.push_back(v->x); 
+					y.push_back(v->y); 
 				}
 				//Desenha o triangulo apos dois cliques
 				TRIbresenham(x[0], y[0], x[1], y[1], x[2], y[2]);
+			case POL:
+				for(forward_list<vertice>::iterator v = f->v.begin(); v != f->v.end(); v++, i++)
+				{
+					x.push_back(v->x); 
+					y.push_back(v->y); 
+				}
+				//Desenha o triangulo apos dois cliques
+				POLbresenham(pol);
 		}
 	}
 } 
@@ -477,6 +535,29 @@ void TRIbresenham(int x1, int y1, int x2, int y2, int x3, int y3)
 	bresenham(x3, y3, x1, y1);
 
 }
+
+void POLbresenham(vector<vertice> &pts) {
+    if (pts.empty()) return;
+
+    for (auto it = pts.begin(); it != std::prev(pts.end()); it++) {
+        int x1 = it->x;
+        int y1 = it->y;
+        auto it2 = std::next(it);
+        int x2 = it2->x;
+        int y2 = it2->y;
+
+        bresenham(x1, y1, x2, y2);
+    }
+
+    // Desenhar a última linha conectando o último vértice com o primeiro
+    int x1 = pts.back().x;
+    int y1 = pts.back().y;
+    int x2 = pts.front().x;
+    int y2 = pts.front().y;
+
+    bresenham(x1, y1, x2, y2);
+}
+
 
 /*
  * Funcao que implementa o Algoritmo de Rasterizacao da Reta Imediata
