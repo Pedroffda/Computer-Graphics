@@ -72,7 +72,6 @@ struct forma
 forward_list<forma> formas;
 
 vector<vector<vertice>> polList;  // lista de polígonos
-vector<vertice> pol; // lista encadeada de vértices para o polígono atual
 
 // Funcao para armazenar uma forma geometrica na lista de formas
 // Armazena sempre no inicio da lista
@@ -142,7 +141,8 @@ void drawFormas();
 void bresenham(int x1, int y1, int x2, int y2);
 void RETbresenham(int x1, int y1, int x2, int y2);
 void TRIbresenham(int x1, int y1, int x2, int y2, int x3, int y3);
-void POLbresenham(vector<vertice> &pts);
+// void POLbresenham(vector<vertice> &pts);
+void POLbresenham(std::vector<std::vector<vertice>> &polList);
 
 /*
  * Funcao principal
@@ -229,7 +229,7 @@ void menu_popup(int value)
 	if(value == -1){
 		glClear(GL_COLOR_BUFFER_BIT);
 		formas.clear(); // Remove todas as formas da list
-		pol.clear();
+		polList.clear();
 	}
 	modo = value;
 	// printf("%d", modo);
@@ -247,7 +247,7 @@ void keyboard(unsigned char key, int x, int y)
 		exit(EXIT_SUCCESS);
 		break;
 	case ENTER:
-		drawPol = true;
+		drawPol = false;
 		printf ("ENTER\n");
 		break;
 		
@@ -339,19 +339,17 @@ void mouse(int button, int state, int x, int y)
 		case POL:
 			if (state == GLUT_DOWN){
 				vertice vi = {x, height - y - 1};
-				// currentPt = std::array<int, 2>{x, height - y - 1}; 
-				if(!drawPol){
-					// limpa a lista de vértices
-                    // polyList.clear();
-					pol.push_back(vi);
-					pushPOL(pol);
-					printf("Clique (%d, %d)\n", x, height - y - 1);
-					glutPostRedisplay();
-				}else{
-					pol.clear();
-					pol.push_back(vi);
-					drawPol = false;
-					glutPostRedisplay();					
+				vector<vertice> pol; // lista encadeada de vértices para o polígono atual
+				if(!drawPol){ // enter falso  // indica o inicio de um poligono  
+                    pol.push_back(vi);
+                    pushPOL(pol);
+                    polList.push_back(pol);
+                    printf("Clique (%d, %d)\n", x, height - y - 1);
+                    drawPol = true;
+				}else{ // enter verdadeiro
+					// Continua atualizando o polígono em construção
+                    polList.back().push_back(vi);
+                    glutPostRedisplay();	
 				}
 			}
 			break;
@@ -451,7 +449,7 @@ void drawFormas()
 					y.push_back(v->y); 
 				}
 				//Desenha o triangulo apos dois cliques
-				POLbresenham(pol);
+				POLbresenham(polList);
 		}
 	}
 } 
@@ -536,28 +534,54 @@ void TRIbresenham(int x1, int y1, int x2, int y2, int x3, int y3)
 
 }
 
-void POLbresenham(vector<vertice> &pts) {
-    if (pts.empty()) return;
+// void POLbresenham(vector<vertice> &pts) {
+//     if (pts.empty()) return;
+// 
+//     for (auto it = pts.begin(); it != std::prev(pts.end()); it++) {
+//         int x1 = it->x;
+//         int y1 = it->y;
+//         auto it2 = std::next(it);
+//         int x2 = it2->x;
+//         int y2 = it2->y;
+// 
+//         bresenham(x1, y1, x2, y2);
+//     }
+// 
+    // Desenhar a última linha conectando o último vértice com o primeiro
+//     int x1 = pts.back().x;
+//     int y1 = pts.back().y;
+//     int x2 = pts.front().x;
+//     int y2 = pts.front().y;
+// 
+//     bresenham(x1, y1, x2, y2);
+// }
 
-    for (auto it = pts.begin(); it != std::prev(pts.end()); it++) {
-        int x1 = it->x;
-        int y1 = it->y;
-        auto it2 = std::next(it);
-        int x2 = it2->x;
-        int y2 = it2->y;
+void POLbresenham(std::vector<std::vector<vertice> >& polList) {
+    if (polList.empty()) return;
+
+    for (std::vector<std::vector<vertice> >::iterator p = polList.begin(); p != polList.end(); ++p) {
+        std::vector<vertice> pts = *p;
+
+        if (pts.empty()) continue;
+
+        for (std::vector<vertice>::iterator it = pts.begin(); it != pts.end() - 1; ++it) {
+            int x1 = it->x;
+            int y1 = it->y;
+            int x2 = (it+1)->x;
+            int y2 = (it+1)->y;
+
+            bresenham(x1, y1, x2, y2);
+        }
+
+        // Desenhar a última linha conectando o último vértice com o primeiro
+        int x1 = pts.back().x;
+        int y1 = pts.back().y;
+        int x2 = pts.front().x;
+        int y2 = pts.front().y;
 
         bresenham(x1, y1, x2, y2);
     }
-
-    // Desenhar a última linha conectando o último vértice com o primeiro
-    int x1 = pts.back().x;
-    int y1 = pts.back().y;
-    int x2 = pts.front().x;
-    int y2 = pts.front().y;
-
-    bresenham(x1, y1, x2, y2);
 }
-
 
 /*
  * Funcao que implementa o Algoritmo de Rasterizacao da Reta Imediata
