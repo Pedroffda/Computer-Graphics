@@ -29,6 +29,9 @@ using namespace std;
 // Variaveis Globais
 #define ESC 27
 #define ENTER 13
+#define SPACE 32
+#define C 67 
+
 
 //Enumeracao com os tipos de formas geometricas
 enum tipo_forma {LIN = 1, TRI = 2, RET = 3, POL = 4, CIR}; // Linha, Triangulo, Retangulo, Poligono, Circulo
@@ -36,11 +39,20 @@ enum tipo_forma {LIN = 1, TRI = 2, RET = 3, POL = 4, CIR}; // Linha, Triangulo, 
 //Verifica se foi realizado o primeiro clique do mouse
 bool click1 = false;
 
+// Verifica se a funcao desenhar um novo poligono e verdadeiro
 bool drawPol = false;
 
+//Verifica se foi realizado o primeiro e segundo clique do mouse para desenhar um triangulo
 bool drawTri1 = false, drawTri2 = false;
 
+//Verifica se foi realizado o primeiro clique do mouse para desenhar um retangulo
 bool drawRet = false;
+
+//Verifica se o espaco foi pressionado 
+bool isSpacePressed = false;
+
+//Verifica se "c" foi pressionado 
+bool isCPressed = false;
 
 //Coordenadas da posicao atual do mouse
 int m_x, m_y;
@@ -92,7 +104,7 @@ void pushVertice(int x, int y)
 	formas.front().v.push_front(v);
 }
 
-//Fucao para armazenar uma Linha na lista de formas geometricas
+//Funcao para armazenar uma Linha na lista de formas geometricas
 void pushLinha(int x1, int y1, int x2, int y2)
 {
 	pushForma(LIN);
@@ -100,6 +112,7 @@ void pushLinha(int x1, int y1, int x2, int y2)
 	pushVertice(x2, y2);
 }
 
+//Funcao para armazenar um Retangulo na lista de formas geometricas
 void pushRet(int x1, int y1, int x2, int y2)
 {
 	pushForma(RET);
@@ -107,6 +120,7 @@ void pushRet(int x1, int y1, int x2, int y2)
 	pushVertice(x2, y2);
 }
 
+//Funcao para armazenar um Triangulo na lista de formas geometricas
 void pushTri(int x1,int y1, int x2,int y2, int x3, int y3){
 	pushForma(TRI);
 	pushVertice(x1, y1);
@@ -114,6 +128,7 @@ void pushTri(int x1,int y1, int x2,int y2, int x3, int y3){
 	pushVertice(x3, y3);
 }
 
+//Fucao para armazenar um Poligono na lista de formas geometricas
 void pushPOL(std::vector<vertice> &pts){
 	pushForma(POL);
 	printf("PUSHPOL\n");
@@ -143,7 +158,11 @@ void RETbresenham(int x1, int y1, int x2, int y2);
 void TRIbresenham(int x1, int y1, int x2, int y2, int x3, int y3);
 // void POLbresenham(vector<vertice> &pts);
 void POLbresenham(std::vector<std::vector<vertice>> &polList);
-
+void translateFormaGeometrica(int tx, int ty, forma& f);
+void special(int key, int x, int y);
+void scaleFormaGeometrica(float sx, float sy, forma& f);
+void shearFormaGeometrica(float shx, float shy, forma& f);
+void updatePolList();
 /*
  * Funcao principal
  */
@@ -157,6 +176,7 @@ int main(int argc, char** argv)
 	init(); // Chama funcao init();
 	glutReshapeFunc(reshape); //funcao callback para redesenhar a tela
 	glutKeyboardFunc(keyboard); //funcao callback do teclado
+	glutSpecialFunc(special);
 	glutMouseFunc(mouse); //funcao callback do mouse
 	glutPassiveMotionFunc(mousePassiveMotion); //fucao callback do movimento passivo do mouse
 	glutDisplayFunc(display); //funcao callback de desenho
@@ -164,10 +184,10 @@ int main(int argc, char** argv)
 	// Define o menu pop-up
 	glutCreateMenu(menu_popup);
 	glutAddMenuEntry("Linha", LIN);
-   glutAddMenuEntry("Retangulo", RET);
-   glutAddMenuEntry("Triangulo", TRI);
-   glutAddMenuEntry("Poligono", POL);
-   glutAddMenuEntry("Limpar", -1);
+	glutAddMenuEntry("Retangulo", RET);
+	glutAddMenuEntry("Triangulo", TRI);
+	glutAddMenuEntry("Poligono", POL);
+	glutAddMenuEntry("Limpar", -1);
 	glutAddMenuEntry("Sair", 0);
 	glutAttachMenu(GLUT_RIGHT_BUTTON);
 
@@ -250,10 +270,44 @@ void keyboard(unsigned char key, int x, int y)
 		drawPol = false;
 		printf ("ENTER\n");
 		break;
-		
+	case SPACE:
+		printf ("ESPACO\n");
+    	isSpacePressed = !isSpacePressed;
+    	break;
+    case C:
+ 	case 99:
+		printf ("C\n");
+    	isCPressed = !isCPressed;
+    	break;
 	}
 }
 
+void special(int key, int x, int y)
+{
+    switch(key)
+    {
+    case GLUT_KEY_UP:
+		if(!isSpacePressed) translateFormaGeometrica(0, 1, formas.front());
+		// else scaleFormaGeometrica(1, 1.1, formas.front());
+        break;  
+    case GLUT_KEY_DOWN: 
+        if(!isSpacePressed) translateFormaGeometrica(0, -1, formas.front());
+		// else scaleFormaGeometrica(1, 0.9, formas.front());   
+        break;
+    case GLUT_KEY_LEFT:
+        if(isSpacePressed) scaleFormaGeometrica(0.9, 0.9, formas.front());
+        else if(isCPressed) shearFormaGeometrica(0.7, 0.0, formas.front());
+		else translateFormaGeometrica(-1, 0 , formas.front());   
+        break;
+    case GLUT_KEY_RIGHT:
+        if(isSpacePressed) scaleFormaGeometrica(1.1, 1.1, formas.front());
+        else if(isCPressed) shearFormaGeometrica(0.0, 0.7, formas.front());
+		else translateFormaGeometrica(1, 0, formas.front());   
+        break;
+    }
+
+    glutPostRedisplay();
+}
 
 /*
  * Controle dos botoes do mouse
@@ -355,12 +409,14 @@ void mouse(int button, int state, int x, int y)
 			break;
 		}
 		break;
-
-//        case GLUT_MIDDLE_BUTTON:
-//            if (state == GLUT_DOWN) {
-//                glutPostRedisplay();
-//            }
-//        break;
+       // case GLUT_MIDDLE_BUTTON:
+       //     if (state == GLUT_DOWN) {
+       //     		printf("MIDDLE");
+       //     		printf("Clique (%d, %d)\n", x, height - y - 1);
+       //     		translateFormaGeometrica(1, 0, formas.front());
+       //         glutPostRedisplay();
+       //     }
+       // break;
 //
 //        case GLUT_RIGHT_BUTTON:
 //            if (state == GLUT_DOWN) {
@@ -401,7 +457,7 @@ void drawFormas()
 	else if(drawRet) RETbresenham(x_1, y_1, m_x, m_y);
 	else if(drawTri1) bresenham(x_1, y_1, m_x, m_y);
 	else if(drawTri2) TRIbresenham(x_1, y_1, x_2, y_2 ,m_x, m_y);
-	// else if(!drawPol) POLbresenham(polyList);
+	else if(drawPol) bresenham(polList.back().back().x, polList.back().back().y , m_x, m_y);
 
 	//Percorre a lista de formas geometricas para desenhar
 	for(forward_list<forma>::iterator f = formas.begin(); f != formas.end(); f++)
@@ -412,8 +468,6 @@ void drawFormas()
 		switch (f->tipo)
 		{
 			case LIN:
-				
-				// i = 0;
 				//Percorre a lista de vertices da forma linha para desenhar
 				for(forward_list<vertice>::iterator v = f->v.begin(); v != f->v.end(); v++, i++)
 				{
@@ -424,7 +478,6 @@ void drawFormas()
 				bresenham(x[0], y[0], x[1], y[1]);
 				break;
 			case RET:
-				// i = 0;
 				//Percorre a lista de vertices da forma linha para desenhar
 				for(forward_list<vertice>::iterator v = f->v.begin(); v != f->v.end(); v++, i++)
 				{
@@ -448,7 +501,7 @@ void drawFormas()
 					x.push_back(v->x); 
 					y.push_back(v->y); 
 				}
-				//Desenha o triangulo apos dois cliques
+				//Desenha um poligono apos dois cliques
 				POLbresenham(polList);
 		}
 	}
@@ -534,28 +587,6 @@ void TRIbresenham(int x1, int y1, int x2, int y2, int x3, int y3)
 
 }
 
-// void POLbresenham(vector<vertice> &pts) {
-//     if (pts.empty()) return;
-// 
-//     for (auto it = pts.begin(); it != std::prev(pts.end()); it++) {
-//         int x1 = it->x;
-//         int y1 = it->y;
-//         auto it2 = std::next(it);
-//         int x2 = it2->x;
-//         int y2 = it2->y;
-// 
-//         bresenham(x1, y1, x2, y2);
-//     }
-// 
-    // Desenhar a última linha conectando o último vértice com o primeiro
-//     int x1 = pts.back().x;
-//     int y1 = pts.back().y;
-//     int x2 = pts.front().x;
-//     int y2 = pts.front().y;
-// 
-//     bresenham(x1, y1, x2, y2);
-// }
-
 void POLbresenham(std::vector<std::vector<vertice> >& polList) {
     if (polList.empty()) return;
 
@@ -583,44 +614,70 @@ void POLbresenham(std::vector<std::vector<vertice> >& polList) {
     }
 }
 
-/*
- * Funcao que implementa o Algoritmo de Rasterizacao da Reta Imediata
- */
-// void retaImediata(double x1, double y1, double x2, double y2){
-//     double m, b, yd, xd;
-//     double xmin, xmax,ymin,ymax;
-//
-//     drawPixel((int)x1,(int)y1);
-//     if(x2-x1 != 0){ //Evita a divisao por zero
-//         m = (y2-y1)/(x2-x1);
-//         b = y1 - (m*x1);
-//
-//         if(m>=-1 && m <= 1){ // Verifica se o declive da reta tem tg de -1 a 1, se verdadeira calcula incrementando x
-//             xmin = (x1 < x2)? x1 : x2;
-//             xmax = (x1 > x2)? x1 : x2;
-//
-//             for(int x = (int)xmin+1; x < xmax; x++){
-//                 yd = (m*x)+b;
-//                 yd = floor(0.5+yd);
-//                 drawPixel(x,(int)yd);
-//             }
-//         }else{ // Se tg menor que -1 ou maior que 1, calcula incrementado os valores de y
-//             ymin = (y1 < y2)? y1 : y2;
-//             ymax = (y1 > y2)? y1 : y2;
-//
-//             for(int y = (int)ymin + 1; y < ymax; y++){
-//                 xd = (y - b)/m;
-//                 xd = floor(0.5+xd);
-//                 drawPixel((int)xd,y);
-//             }
-//         }
-//
-//     }else{ // se x2-x1 == 0, reta perpendicular ao eixo x
-//         ymin = (y1 < y2)? y1 : y2;
-//         ymax = (y1 > y2)? y1 : y2;
-//         for(int y = (int)ymin + 1; y < ymax; y++){
-//             drawPixel((int)x1,y);
-//         }
-//     }
-//     drawPixel((int)x2,(int)y2);
-// }
+void translateFormaGeometrica(int tx, int ty, forma& f) {
+	if(f.v.empty()) return;
+	for (auto it = f.v.begin(); it != f.v.end(); ++it) {
+    	vertice& v = *it;
+    	v.x += tx;
+    	v.y += ty;
+	}
+	// updatePolList();
+	glutPostRedisplay();
+	
+}
+
+void scaleFormaGeometrica(float sx, float sy, forma& f) {
+    if (f.v.empty()) return;
+    float cx = 0, cy = 0; // centro da forma	
+	for (auto it = f.v.begin(); it != f.v.end(); ++it) {
+    	vertice& v = *it;
+    	cx += v.x;
+    	cy += v.y;
+	}
+	int size = distance(f.v.begin(), f.v.end());
+    cx /= size;
+    cy /= size;
+    for (auto it = f.v.begin(); it != f.v.end(); ++it) {
+    	vertice& v = *it;
+        v.x = (v.x - cx) * sx + cx;
+        v.y = (v.y - cy) * sy + cy;
+    }
+    glutPostRedisplay();
+}
+
+
+void shearFormaGeometrica(float shx, float shy, forma& f) {
+    if(f.v.empty()) return;
+
+    float cx = 0, cy = 0; // centro da forma    
+    for (auto it = f.v.begin(); it != f.v.end(); ++it) {
+        vertice& v = *it;
+        cx += v.x;
+        cy += v.y;
+    }
+    int size = distance(f.v.begin(), f.v.end());
+    cx /= size;
+    cy /= size;
+
+    for (auto it = f.v.begin(); it != f.v.end(); ++it) {
+        vertice& v = *it;
+        v.x += shy * v.y;
+        v.y += shx * v.x;
+    }
+
+    glutPostRedisplay();
+}
+
+void updatePolList() {
+    polList.clear(); // Limpa a lista existente de polígonos
+    for (auto it = formas.begin(); it != formas.end(); ++it) {
+        forma& f = *it;
+        if (f.tipo == POL && !f.v.empty()) {
+            std::vector<vertice> pts;
+            for (auto v_it = f.v.begin(); v_it != f.v.end(); ++v_it) {
+                pts.push_back(*v_it);
+            }
+            polList.push_back(pts);
+        }
+    }
+}
