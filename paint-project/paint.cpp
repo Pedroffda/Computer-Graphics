@@ -66,6 +66,8 @@ int modo = LIN;
 //Largura e altura da janela
 int width = 512, height = 512;
 
+
+
 // Definicao de vertice
 struct vertice
 {
@@ -77,30 +79,49 @@ struct vertice
 struct forma
 {
 	int tipo;
+	float cx, cy;
 	forward_list<vertice> v; //lista encadeada de vertices
 };
 
 // Lista encadeada de formas geometricas
 forward_list<forma> formas;
 
-// Funcao para armazenar uma forma geometrica na lista de formas
-// Armazena sempre no inicio da lista
-void pushForma(int tipo)
+void updateCentroide(forma& f)
 {
-	forma f;
-	f.tipo = tipo;
-	formas.push_front(f);
+    if (f.v.empty()) return;
+    float cx = 0, cy = 0; // centro da forma	
+    for (auto it = f.v.begin(); it != f.v.end(); ++it) {
+        vertice& v = *it;
+        cx += v.x;
+        cy += v.y;
+    }
+    int size = distance(f.v.begin(), f.v.end());
+    cx /= size;
+    cy /= size;
+    f.cx = cx;
+    f.cy = cy;
 }
 
-// Funcao para armazenar um vertice na forma do inicio da lista de formas geometricas
-// Armazena sempre no inicio da lista
+void pushForma(int tipo)
+{
+    forma f;
+    f.tipo = tipo;
+    f.cx = 0;
+    f.cy = 0;
+    formas.push_front(f);
+}
+
 void pushVertice(int x, int y)
 {
-	vertice v;
-	v.x = x;
-	v.y = y;
-	formas.front().v.push_front(v);
+    vertice v;
+    v.x = x;
+    v.y = y;
+    formas.front().v.push_front(v);
+
+    // Recalcular o centroide
+    updateCentroide(formas.front());
 }
+
 
 //Funcao para armazenar uma Linha na lista de formas geometricas
 void pushLinha(int x1, int y1, int x2, int y2)
@@ -129,13 +150,10 @@ void pushTri(int x1,int y1, int x2,int y2, int x3, int y3){
 //Fucao para armazenar um Poligono na lista de formas geometricas
 void pushPOL(std::vector<vertice> &pts){
 	pushForma(POL);
-	printf("PUSHPOL\n");
     for (std::vector<vertice>::iterator v = pts.begin(); v != pts.end(); ++v) {
         pushVertice(v->x, v->y);
-        printf("formas adicionadas: (%d, %d)\n", v->x, v->y);
     }
 }
-
 // 
 /*
  * Declaracoes antecipadas (forward) das funcoes (assinaturas das funcoes)
@@ -160,7 +178,7 @@ void translateFormaGeometrica(int tx, int ty, forma& f);
 void special(int key, int x, int y);
 void scaleFormaGeometrica(float sx, float sy, forma& f);
 void shearFormaGeometrica(float shx, float shy, forma& f);
-void updatePolList();
+void updateCentroide(forma& f);
 void POLbresenham(std::vector<std::vector<vertice> >& polList);
 /*
  * Funcao principal
@@ -295,13 +313,13 @@ void special(int key, int x, int y)
         break;
     case GLUT_KEY_LEFT:
         if(isSpacePressed) scaleFormaGeometrica(0.9, 0.9, formas.front());
-        else if(isCPressed) shearFormaGeometrica(0.7, 0.0, formas.front());
-		else translateFormaGeometrica(-1, 0 , formas.front());   
+        // else if(isCPressed) shearFormaGeometrica(0.7, 0.0, formas.front());
+		// else translateFormaGeometrica(-1, 0 , formas.front());   
         break;
     case GLUT_KEY_RIGHT:
         if(isSpacePressed) scaleFormaGeometrica(1.1, 1.1, formas.front());
-        else if(isCPressed) shearFormaGeometrica(0.0, 0.7, formas.front());
-		else translateFormaGeometrica(1, 0, formas.front());   
+        // else if(isCPressed) shearFormaGeometrica(0.0, 0.7, formas.front());
+		// else translateFormaGeometrica(1, 0, formas.front());   
         break;
     }
 
@@ -401,6 +419,7 @@ void mouse(int button, int state, int x, int y)
 				}else{ // enter verdadeiro
 					// Continua atualizando o pol?gono em constru??o
                     formas.front().v.push_front(vi);
+                    updateCentroide(formas.front());
                     pol.clear();
                     glutPostRedisplay();	
 				}
@@ -594,7 +613,7 @@ void POLbresenham(std::vector<int>& x, std::vector<int>& y) {
         bresenham(x[i], y[i], x[i+1], y[i+1]);
     }
 
-    // Desenhar a última linha conectando o último vértice com o primeiro
+    // Desenhar a ?ltima linha conectando o ?ltimo v?rtice com o primeiro
     bresenham(x.back(), y.back(), x.front(), y.front());
 }
 
@@ -610,22 +629,25 @@ void translateFormaGeometrica(int tx, int ty, forma& f) {
 	
 }
 
-void scaleFormaGeometrica(float sx, float sy, forma& f) {
+void scaleFormaGeometrica(float sx, float sy, forma& f)
+{
     if (f.v.empty()) return;
-    float cx = 0, cy = 0; // centro da forma	
-	for (auto it = f.v.begin(); it != f.v.end(); ++it) {
-    	vertice& v = *it;
-    	cx += v.x;
-    	cy += v.y;
-	}
-	int size = distance(f.v.begin(), f.v.end());
-    cx /= size;
-    cy /= size;
+	printf("centroide (%f, %f)\n", f.cx, f.cy); // Imprime as coordenadas do centróide da forma
     for (auto it = f.v.begin(); it != f.v.end(); ++it) {
-    	vertice& v = *it;
-        v.x = (v.x - cx) * sx + cx;
-        v.y = (v.y - cy) * sy + cy;
+        vertice& v = *it;
+        // Calcula a distância do ponto em relação ao centróide
+        float dx = v.x - f.cx;
+        float dy = v.y - f.cy;
+        float dist = sqrt(dx * dx + dy * dy);
+        // Verifica se a escala ultrapassa o limiar definido
+        if((sx > 1 && dist >= 420) || (sx < 1 && dist <= 60)){sx = 1;sy = 1;} 
+        // Aplica a transformação de escala aos pontos da forma
+        v.x = round((v.x - f.cx) * sx + f.cx);
+		v.y = round((v.y - f.cy) * sy + f.cy);
     }
+    // Atualiza as coordenadas do centróide após a transformação
+    updateCentroide(f);
+    // Redesenha a forma na tela
     glutPostRedisplay();
 }
 
