@@ -54,6 +54,12 @@ bool isSpacePressed = false;
 //Verifica se "c" foi pressionado 
 bool isCPressed = false;
 
+//Verifica se "r" foi pressionado 
+bool isRPressed = false;
+
+//Verifica se "e" foi pressionado 
+bool isEPressed = false;
+
 //Coordenadas da posicao atual do mouse
 int m_x, m_y;
 
@@ -65,8 +71,6 @@ int modo = LIN;
 
 //Largura e altura da janela
 int width = 512, height = 512;
-
-
 
 // Definicao de vertice
 struct vertice
@@ -178,8 +182,11 @@ void translateFormaGeometrica(int tx, int ty, forma& f);
 void special(int key, int x, int y);
 void scaleFormaGeometrica(float sx, float sy, forma& f);
 void shearFormaGeometrica(float shx, float shy, forma& f);
+void rotateFormaGeometrica(float theta, forma& f);
 void updateCentroide(forma& f);
 void POLbresenham(std::vector<std::vector<vertice> >& polList);
+void refleteFormaGeometrica(char eixo, forma& f);
+
 /*
  * Funcao principal
  */
@@ -291,10 +298,20 @@ void keyboard(unsigned char key, int x, int y)
 		printf ("ESPACO\n");
     	isSpacePressed = !isSpacePressed;
     	break;
-    case C:
+    case 67:
  	case 99:
 		printf ("C\n");
     	isCPressed = !isCPressed;
+    	break;
+    case 114:
+ 	case 82:
+    	isRPressed = !isRPressed;
+    	printf(isRPressed ? "R: true" : "R: false"); // prints true
+    	break;
+    case 69:
+ 	case 101:
+    	isEPressed = !isEPressed;
+    	printf(isEPressed ? "E: true" : "E: false"); // prints true
     	break;
 	}
 }
@@ -305,21 +322,25 @@ void special(int key, int x, int y)
     {
     case GLUT_KEY_UP:
 		if(!isSpacePressed) translateFormaGeometrica(0, 1, formas.front());
-		// else scaleFormaGeometrica(1, 1.1, formas.front());
+		else if(isEPressed) refleteFormaGeometrica( 'x' , formas.front());
+		else scaleFormaGeometrica(1, 1.1, formas.front());
         break;  
     case GLUT_KEY_DOWN: 
         if(!isSpacePressed) translateFormaGeometrica(0, -1, formas.front());
-		// else scaleFormaGeometrica(1, 0.9, formas.front());   
+		else scaleFormaGeometrica(1, 0.9, formas.front());   
         break;
     case GLUT_KEY_LEFT:
         if(isSpacePressed) scaleFormaGeometrica(0.9, 0.9, formas.front());
         // else if(isCPressed) shearFormaGeometrica(0.7, 0.0, formas.front());
-		// else translateFormaGeometrica(-1, 0 , formas.front());   
+    	else if(isRPressed) rotateFormaGeometrica(45, formas.front());
+		else translateFormaGeometrica(-1, 0 , formas.front());   
         break;
     case GLUT_KEY_RIGHT:
         if(isSpacePressed) scaleFormaGeometrica(1.1, 1.1, formas.front());
+        else if(isRPressed) rotateFormaGeometrica(315, formas.front());	
+		else if(isEPressed) refleteFormaGeometrica( 'y' , formas.front());	
         // else if(isCPressed) shearFormaGeometrica(0.0, 0.7, formas.front());
-		// else translateFormaGeometrica(1, 0, formas.front());   
+		else translateFormaGeometrica(1, 0, formas.front());   
         break;
     }
 
@@ -585,7 +606,6 @@ void bresenham(int x1, int y1, int x2, int y2)
 		if(!declive && !simetrico){
 			drawPixel(x1, y1);
 		}
-
 	}
 	drawPixel(x2, y2);
 }
@@ -651,25 +671,42 @@ void scaleFormaGeometrica(float sx, float sy, forma& f)
     glutPostRedisplay();
 }
 
-
-void shearFormaGeometrica(float shx, float shy, forma& f) {
-    if(f.v.empty()) return;
-
-    float cx = 0, cy = 0; // centro da forma    
+void rotateFormaGeometrica(float theta, forma& f) {
+    if (f.v.empty()) return;
+    theta = theta * 3.14 / 180.0f; // converte para radianos
+    float cosT = cos(theta);
+    float sinT = sin(theta);
     for (auto it = f.v.begin(); it != f.v.end(); ++it) {
         vertice& v = *it;
-        cx += v.x;
-        cy += v.y;
+        float dx = v.x - f.cx;
+        float dy = v.y - f.cy;
+        v.x = round(f.cx + dx * cosT - dy * sinT);
+        v.y = round(f.cy + dy * cosT + dx * sinT);
     }
-    int size = distance(f.v.begin(), f.v.end());
-    cx /= size;
-    cy /= size;
-
-    for (auto it = f.v.begin(); it != f.v.end(); ++it) {
-        vertice& v = *it;
-        v.x += shy * v.y;
-        v.y += shx * v.x;
-    }
-
     glutPostRedisplay();
 }
+
+void refleteFormaGeometrica(char eixo, forma& f) {
+    if (f.v.empty()) return;
+    printf("char: %c\n", eixo);
+    float sinal = (eixo == 'x' ? -1.0 : -1.0); // determina o sinal da reflexão
+    for (auto it = f.v.begin(); it != f.v.end(); ++it) {
+        vertice& v = *it;
+        // Translada para a origem
+        v.x -= f.cx;
+        v.y -= f.cy;
+        // Realiza a reflexão
+        if (eixo == 'x') {
+        	printf("invertendo eixo x\n");
+            v.y *= sinal;
+        } else {
+        	printf("invertendo eixo y\n");
+            v.x *= sinal;
+        }
+        // Translada de volta para a posição original
+        v.x += f.cx;
+        v.y += f.cy;
+    }
+    glutPostRedisplay();
+}
+
