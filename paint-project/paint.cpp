@@ -322,7 +322,6 @@ void special(int key, int x, int y)
     {
     case GLUT_KEY_UP:
 		if(!isSpacePressed) translateFormaGeometrica(0, 1, formas.front());
-		else if(isEPressed) refleteFormaGeometrica( 'x' , formas.front());
 		else scaleFormaGeometrica(1, 1.1, formas.front());
         break;  
     case GLUT_KEY_DOWN: 
@@ -331,14 +330,15 @@ void special(int key, int x, int y)
         break;
     case GLUT_KEY_LEFT:
         if(isSpacePressed) scaleFormaGeometrica(0.9, 0.9, formas.front());
-        // else if(isCPressed) shearFormaGeometrica(0.7, 0.0, formas.front());
+        else if(isEPressed) refleteFormaGeometrica( 'y' , formas.front());
     	else if(isRPressed) rotateFormaGeometrica(45, formas.front());
+        // else if(isCPressed) shearFormaGeometrica(0.7, 0.0, formas.front());
 		else translateFormaGeometrica(-1, 0 , formas.front());   
         break;
     case GLUT_KEY_RIGHT:
         if(isSpacePressed) scaleFormaGeometrica(1.1, 1.1, formas.front());
         else if(isRPressed) rotateFormaGeometrica(315, formas.front());	
-		else if(isEPressed) refleteFormaGeometrica( 'y' , formas.front());	
+		else if(isEPressed) refleteFormaGeometrica( 'x' , formas.front());	
         // else if(isCPressed) shearFormaGeometrica(0.0, 0.7, formas.front());
 		else translateFormaGeometrica(1, 0, formas.front());   
         break;
