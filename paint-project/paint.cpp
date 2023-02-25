@@ -34,10 +34,13 @@ using namespace std;
 
 
 //Enumeracao com os tipos de formas geometricas
-enum tipo_forma {LIN = 1, TRI = 2, RET = 3, POL = 4, CIR}; // Linha, Triangulo, Retangulo, Poligono, Circulo
+enum tipo_forma {LIN = 1, TRI = 2, RET = 3, POL = 4, CIR = 5}; // Linha, Triangulo, Retangulo, Poligono, Circulo
 
 //Verifica se foi realizado o primeiro clique do mouse
 bool click1 = false;
+
+//Verifica se foi realizado o primeiro clique do mouse para a circunferencia
+bool clickCir1 = false;
 
 // Verifica se a funcao desenhar um novo poligono e verdadeiro
 bool drawPol = false;
@@ -158,6 +161,14 @@ void pushPOL(std::vector<vertice> &pts){
         pushVertice(v->x, v->y);
     }
 }
+
+void pushCIR(int x1, int y1, int x2, int y2)
+{
+	pushForma(CIR);
+	pushVertice(x1, y1);
+	pushVertice(x2, y2);
+}
+
 // 
 /*
  * Declaracoes antecipadas (forward) das funcoes (assinaturas das funcoes)
@@ -186,6 +197,7 @@ void rotateFormaGeometrica(float theta, forma& f);
 void updateCentroide(forma& f);
 void POLbresenham(std::vector<std::vector<vertice> >& polList);
 void refleteFormaGeometrica(char eixo, forma& f);
+void CIRbresenham(int x1, int y1, int r);
 
 /*
  * Funcao principal
@@ -211,6 +223,7 @@ int main(int argc, char** argv)
 	glutAddMenuEntry("Retangulo", RET);
 	glutAddMenuEntry("Triangulo", TRI);
 	glutAddMenuEntry("Poligono", POL);
+	glutAddMenuEntry("Circunferencia", CIR);
 	glutAddMenuEntry("Limpar", -1);
 	glutAddMenuEntry("Sair", 0);
 	glutAttachMenu(GLUT_RIGHT_BUTTON);
@@ -447,6 +460,26 @@ void mouse(int button, int state, int x, int y)
 				}
 			}
 			break;
+		case CIR:
+			if (state == GLUT_DOWN){
+				if(clickCir1)
+				{
+					x_2 = x;
+					y_2 = height - y - 1;
+					printf("Clique 2(%d, %d)\n", x_2, y_2);
+					pushCIR(x_1, y_1, x_2, y_2);
+					clickCir1 = false;
+					glutPostRedisplay();
+				}
+				else
+				{
+					clickCir1 = true;
+					x_1 = x;
+					y_1 = height - y - 1;
+					printf("Clique 1(%d, %d)\n", x_1, y_1);
+				}
+			}
+			break;
 		}
 		break;
        // case GLUT_MIDDLE_BUTTON:
@@ -492,8 +525,10 @@ void drawPixel(int x, int y)
  */
 void drawFormas()
 {
+	int raioEXT = sqrt(pow(x_1 - m_x, 2) + pow(y_1 - m_y, 2));
 	//Apos o primeiro clique, desenha a reta com a posicao atual do mouse
 	if(click1) bresenham(x_1, y_1, m_x, m_y);
+	else if(clickCir1) CIRbresenham(x_1, y_1, raioEXT);
 	else if(drawRet) RETbresenham(x_1, y_1, m_x, m_y);
 	else if(drawTri1) bresenham(x_1, y_1, m_x, m_y);
 	else if(drawTri2) TRIbresenham(x_1, y_1, x_2, y_2 ,m_x, m_y);
@@ -535,6 +570,7 @@ void drawFormas()
 				}
 				//Desenha o triangulo apos dois cliques
 				TRIbresenham(x[0], y[0], x[1], y[1], x[2], y[2]);
+				break;
 			case POL:
 				for(forward_list<vertice>::iterator v = f->v.begin(); v != f->v.end(); v++, i++)
 				{
@@ -544,12 +580,25 @@ void drawFormas()
 				}
 				//Desenha um poligono apos dois cliques
 				POLbresenham(x, y);
+				break;
+			case CIR:
+				for(forward_list<vertice>::iterator v = f->v.begin(); v != f->v.end(); v++, i++)
+				{
+					x.push_back(v->x); 
+					y.push_back(v->y); 
+					// printf("x: %d, y: %d \n",v->x, v->y);
+				}
+				//Desenha um poligono apos dois cliques
+				int raio = sqrt(pow(x[0] - x[1], 2) + pow(y[0] - y[1], 2));
+				CIRbresenham(x[1], y[1], raio);
+				break;
 		}
 	}
 } 
 
 void bresenham(int x1, int y1, int x2, int y2)
 {	
+	printf("entrei no bresenham\n");
 	bool declive = false, simetrico = false;
     int aux = 0, aux2 = 0;
     
@@ -636,6 +685,44 @@ void POLbresenham(std::vector<int>& x, std::vector<int>& y) {
 
     // Desenhar a ?ltima linha conectando o ?ltimo v?rtice com o primeiro
     bresenham(x.back(), y.back(), x.front(), y.front());
+}
+
+void CIRbresenham(int xc, int yc, int r)
+{
+	printf("entrei no circulo\n");
+    int d = 1 - r;
+    int deltE = 3, deltSE = -2 * r + 5;
+    int x = 0, y = r;
+    
+    drawPixel(xc - x, yc + y);
+	drawPixel(xc - y, yc - x);
+	drawPixel(xc + x, yc - y);
+	drawPixel(xc + y, yc + x);
+    
+    while (y > x) {
+        if (d < 0) {
+            d += deltE;
+            deltE += 2;
+            deltSE += 2;
+        } else {
+            d += deltSE;
+            deltE += 2;
+            deltSE += 4;
+            y--;
+        }
+        x++;
+        // Adiciona os pontos simétricos
+        drawPixel(xc + x, yc + y);
+        drawPixel(xc + y, yc + x);
+        drawPixel(xc + y, yc - x);
+        drawPixel(xc + x, yc - y);
+        drawPixel(xc - x, yc - y);
+        drawPixel(xc - y, yc - x);
+        drawPixel(xc - y, yc + x);
+        drawPixel(xc - x, yc + y);
+    }
+    // Caso especial: adiciona o ponto (xc + r, yc)
+    drawPixel(xc + r, yc);
 }
 
 void translateFormaGeometrica(int tx, int ty, forma& f) {
