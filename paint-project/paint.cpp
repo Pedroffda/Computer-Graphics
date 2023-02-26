@@ -1,9 +1,8 @@
 /*
  * Computacao Grafica
- * Codigo Exemplo: Rasterizacao de Segmentos de Reta com GLUT/OpenGL
+ * Codigo Projeto Paint
  * Autor: Pedro Felipe
  */
-
 
 //	Guia
  
@@ -36,6 +35,9 @@
 //		# lembre-se de desativar uma opcao depois de utiliza-la pois podem ocorrer confilos
 //			por exemplo, caso o usuario selecione ao mesmo tempo a opcao de cisalhamento e
 //			espaco, entao a funcao de ampliar sera executada prioritariamente
+
+//		# obs.: em operacoes que envolvem numeros flutuantes, o pixel nunca ira
+//				voltar para seu estado original gracas ao arredondamento
 
 // Bibliotecas utilizadas pelo OpenGL
 #ifdef __APPLE__
@@ -111,7 +113,7 @@ int m_x, m_y;
 //Coordenadas do primeiro clique e do segundo clique do mouse
 int x_1, y_1, x_2, y_2, x_3, y_3;
 
-// Define a cor a er pinta
+// Define a cor a ser pintada
 float r=0, g=0, b=0;
 
 //Indica o tipo de forma geometrica ativa para desenhar
@@ -139,6 +141,7 @@ struct forma
 forward_list<forma> formas;
 vector<vertice> color_pts;
 
+// Atualiza o centroide da forma
 void updateCentroide(forma& f)
 {
     if (f.v.empty()) return;
@@ -317,7 +320,18 @@ void reshape(int w, int h)
 	// muda para o modo de desenho
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
+}
 
+string printModo(int modo)
+{
+	if(modo == LIN){return "Linha";}
+	if(modo == RET){return "Retangulo";}
+	if(modo == TRI){return "Triangulo";}
+	if(modo == POL){return "Poligono";}
+	if(modo == CIR){return "Circunferencia";}
+	if(modo == PIN){return "Pintura";}
+	if(modo == -1){return "Reset";}
+	if(modo == 0){return "Saindo";}												
 }
 
 /*
@@ -331,6 +345,7 @@ void display(void)
 	//Desenha texto com as coordenadas da posicao do mouse
 	glColor3f (0.0, 0.0, 0.0);
 	draw_text_stroke(0, 0, "(" + to_string(m_x) + "," + to_string(m_y) + ")", 0.2);
+	draw_text_stroke(0, height-25, "(" + printModo(modo) + ")", 0.2);
 	glutSwapBuffers(); // manda o OpenGl renderizar as primitivas
 
 }
@@ -682,7 +697,6 @@ void drawFormas()
  */
 void bresenham(int x1, int y1, int x2, int y2)
 {	
-	printf("entrei no bresenham\n");
 	bool declive = false, simetrico = false;
     int aux = 0, aux2 = 0;
     
@@ -714,8 +728,6 @@ void bresenham(int x1, int y1, int x2, int y2)
 	int incE = 2 * (y2 - y1);
 	int incNE = 2 * ((y2 - y1) - (x2 - x1));
 
-	drawPixel(x1, y1);
-
 	while(x1 < x2)
 	{
 		if(d <= 0)
@@ -741,7 +753,6 @@ void bresenham(int x1, int y1, int x2, int y2)
 			drawPixel(x1, y1);
 		}
 	}
-	drawPixel(x2, y2);
 }
 /*
  *Funcao que desenha um retangulo atraves do bresenham
@@ -771,7 +782,7 @@ void TRIbresenham(int x1, int y1, int x2, int y2, int x3, int y3)
 void POLbresenham(std::vector<int>& x, std::vector<int>& y) {
     int n = x.size();
 
-    for (int i = 0; i < n - 1; ++i) {
+    for (int i = 0; i < n - 1; i++) {
         bresenham(x[i], y[i], x[i+1], y[i+1]);
     }
 
@@ -784,7 +795,6 @@ void POLbresenham(std::vector<int>& x, std::vector<int>& y) {
  */
 void CIRbresenham(int xc, int yc, int r)
 {
-	printf("entrei no circulo\n");
     int d = 1 - r;
     int deltE = 3, deltSE = -2 * r + 5;
     int x = 0, y = r;
@@ -880,7 +890,7 @@ void rotateFormaGeometrica(float theta, forma& f) {
  */
 void refleteFormaGeometrica(char eixo, forma& f) {
     if (f.v.empty()) return;
-    printf("char: %c\n", eixo);
+    // printf("char: %c\n", eixo);
     float sinal = (eixo == 'x' ? -1.0 : -1.0); // determina o sinal da reflex?o
     for (auto it = f.v.begin(); it != f.v.end(); ++it) {
         vertice& v = *it;
