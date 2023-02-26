@@ -34,7 +34,7 @@ using namespace std;
 
 
 //Enumeracao com os tipos de formas geometricas
-enum tipo_forma {LIN = 1, TRI = 2, RET = 3, POL = 4, CIR = 5}; // Linha, Triangulo, Retangulo, Poligono, Circulo
+enum tipo_forma {LIN = 1, TRI = 2, RET = 3, POL = 4, CIR = 5, PIN = 6}; // Linha, Triangulo, Retangulo, Poligono, Circulo
 
 //Verifica se foi realizado o primeiro clique do mouse
 bool click1 = false;
@@ -90,8 +90,14 @@ struct forma
 	forward_list<vertice> v; //lista encadeada de vertices
 };
 
+struct color{
+	vector<vertice> color_pts;
+	vector<float> color;
+};
+
 // Lista encadeada de formas geometricas
 forward_list<forma> formas;
+vector<vertice> color_pts;
 
 void updateCentroide(forma& f)
 {
@@ -143,7 +149,9 @@ void pushRet(int x1, int y1, int x2, int y2)
 {
 	pushForma(RET);
 	pushVertice(x1, y1);
+	pushVertice(x2, y1);
 	pushVertice(x2, y2);
+	pushVertice(x1, y2);
 }
 
 //Funcao para armazenar um Triangulo na lista de formas geometricas
@@ -167,6 +175,16 @@ void pushCIR(int x1, int y1, int x2, int y2)
 	pushForma(CIR);
 	pushVertice(x1, y1);
 	pushVertice(x2, y2);
+}
+
+void pushPIN(int x1, int y1)
+{
+	pushForma(PIN);
+	pushVertice(x1, y1);
+	vertice v;
+	v.x = x1;
+	v.y = y1;
+	color_pts.push_back(v);
 }
 
 // 
@@ -198,6 +216,7 @@ void updateCentroide(forma& f);
 void POLbresenham(std::vector<std::vector<vertice> >& polList);
 void refleteFormaGeometrica(char eixo, forma& f);
 void CIRbresenham(int x1, int y1, int r);
+void floodFill(int x, int y, const vector<float>& fillColor);
 
 /*
  * Funcao principal
@@ -224,6 +243,7 @@ int main(int argc, char** argv)
 	glutAddMenuEntry("Triangulo", TRI);
 	glutAddMenuEntry("Poligono", POL);
 	glutAddMenuEntry("Circunferencia", CIR);
+	glutAddMenuEntry("Preencher", PIN);
 	glutAddMenuEntry("Limpar", -1);
 	glutAddMenuEntry("Sair", 0);
 	glutAttachMenu(GLUT_RIGHT_BUTTON);
@@ -272,6 +292,7 @@ void display(void)
 	glColor3f (0.0, 0.0, 0.0); // Seleciona a cor default como preto
 	drawFormas(); // Desenha as formas geometricas da lista
 	//Desenha texto com as coordenadas da posicao do mouse
+	glColor3f (0.0, 0.0, 0.0);
 	draw_text_stroke(0, 0, "(" + to_string(m_x) + "," + to_string(m_y) + ")", 0.2);
 	glutSwapBuffers(); // manda o OpenGl renderizar as primitivas
 
@@ -480,6 +501,16 @@ void mouse(int button, int state, int x, int y)
 				}
 			}
 			break;
+		case PIN:
+			if (state == GLUT_DOWN){
+				x_1 = x;
+				y_1 = height - y - 1;
+				printf("Clique 1(%d, %d)\n", x_1, y_1);
+				pushPIN(x_1, y_1);
+				vector<float> color = {1.0, 0.0 , 0.0}; // red
+				floodFill(x_1, y_1, color);
+			}
+			break;
 		}
 		break;
        // case GLUT_MIDDLE_BUTTON:
@@ -560,7 +591,7 @@ void drawFormas()
 					y.push_back(v->y); 
 				}
 				//Desenha o quadrilatero apos dois cliques
-				RETbresenham(x[0], y[0], x[1], y[1]);
+				POLbresenham(x, y);
 				break;
 			case TRI:
 				for(forward_list<vertice>::iterator v = f->v.begin(); v != f->v.end(); v++, i++)
@@ -594,6 +625,16 @@ void drawFormas()
 				break;
 		}
 	}
+	for(vector<vertice>::iterator it = color_pts.begin(); it != color_pts.end(); ++it) {
+	    int x = it->x;
+	    int y = it->y;
+	    glPointSize(1.0f);
+	    glColor3f(1.0, 0.0, 0.0);
+	    glBegin(GL_POINTS); // Seleciona a primitiva GL_POINTS para desenhar
+			glVertex2i(x, y);
+		glEnd();  // indica o fim do ponto
+	}
+
 } 
 
 void bresenham(int x1, int y1, int x2, int y2)
@@ -711,7 +752,7 @@ void CIRbresenham(int xc, int yc, int r)
             y--;
         }
         x++;
-        // Adiciona os pontos simétricos
+        // Adiciona os pontos sim?tricos
         drawPixel(xc + x, yc + y);
         drawPixel(xc + y, yc + x);
         drawPixel(xc + y, yc - x);
@@ -740,20 +781,20 @@ void translateFormaGeometrica(int tx, int ty, forma& f) {
 void scaleFormaGeometrica(float sx, float sy, forma& f)
 {
     if (f.v.empty()) return;
-	printf("centroide (%f, %f)\n", f.cx, f.cy); // Imprime as coordenadas do centróide da forma
+	printf("centroide (%f, %f)\n", f.cx, f.cy); // Imprime as coordenadas do centr?ide da forma
     for (auto it = f.v.begin(); it != f.v.end(); ++it) {
         vertice& v = *it;
-        // Calcula a distância do ponto em relação ao centróide
+        // Calcula a dist?ncia do ponto em rela??o ao centr?ide
         float dx = v.x - f.cx;
         float dy = v.y - f.cy;
         float dist = sqrt(dx * dx + dy * dy);
         // Verifica se a escala ultrapassa o limiar definido
         if((sx > 1 && dist >= 420) || (sx < 1 && dist <= 60)){sx = 1;sy = 1;} 
-        // Aplica a transformação de escala aos pontos da forma
+        // Aplica a transforma??o de escala aos pontos da forma
         v.x = round((v.x - f.cx) * sx + f.cx);
 		v.y = round((v.y - f.cy) * sy + f.cy);
     }
-    // Atualiza as coordenadas do centróide após a transformação
+    // Atualiza as coordenadas do centr?ide ap?s a transforma??o
     updateCentroide(f);
     // Redesenha a forma na tela
     glutPostRedisplay();
@@ -777,13 +818,13 @@ void rotateFormaGeometrica(float theta, forma& f) {
 void refleteFormaGeometrica(char eixo, forma& f) {
     if (f.v.empty()) return;
     printf("char: %c\n", eixo);
-    float sinal = (eixo == 'x' ? -1.0 : -1.0); // determina o sinal da reflexão
+    float sinal = (eixo == 'x' ? -1.0 : -1.0); // determina o sinal da reflex?o
     for (auto it = f.v.begin(); it != f.v.end(); ++it) {
         vertice& v = *it;
         // Translada para a origem
         v.x -= f.cx;
         v.y -= f.cy;
-        // Realiza a reflexão
+        // Realiza a reflex?o
         if (eixo == 'x') {
         	printf("invertendo eixo x\n");
             v.y *= sinal;
@@ -791,7 +832,7 @@ void refleteFormaGeometrica(char eixo, forma& f) {
         	printf("invertendo eixo y\n");
             v.x *= sinal;
         }
-        // Translada de volta para a posição original
+        // Translada de volta para a posi??o original
         v.x += f.cx;
         v.y += f.cy;
     }
@@ -810,9 +851,35 @@ void shearFormaGeometrica(float sx, float sy, forma& f) {
         float new_y = v.y + sx * v.x;
         v.x = round(new_x);
         v.y = round(new_y);
-        // Translada de volta para a posição original
+        // Translada de volta para a posi??o original
         v.x += f.cx;
         v.y += f.cy;
     }
     glutPostRedisplay();
+}
+
+void floodFill(int x, int y, const vector<float>& fillColor) {
+    float pixelColor[3];
+    glReadPixels(x, y, 1, 1, GL_RGB, GL_FLOAT, pixelColor);
+    // verifica se a cor atual é diferente da cor de preenchimento
+    if (pixelColor[0] != fillColor[0] || pixelColor[1] != fillColor[1] || pixelColor[2] != fillColor[2]) {
+        // verifica se a cor atual é igual à cor da borda
+        if (pixelColor[0] == 0.0f && pixelColor[1] == 0.0f && pixelColor[2] == 0.0f) {
+            return;
+        }
+        // preenche o pixel com a cor de preenchimento
+        glPointSize(1.0f);
+        glColor3f(fillColor[0], fillColor[1], fillColor[2]);
+        glBegin(GL_POINTS);
+            glVertex2i(x, y);
+        glEnd();
+        pushPIN(x,y);
+        // glFlush();
+        glutSwapBuffers();
+        // chama a função para os pixels adjacentes
+        floodFill(x + 1, y, fillColor);
+        floodFill(x - 1, y, fillColor);
+        floodFill(x, y + 1, fillColor);
+        floodFill(x, y - 1, fillColor);
+    }
 }
