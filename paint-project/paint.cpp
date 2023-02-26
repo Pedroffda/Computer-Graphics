@@ -16,6 +16,9 @@
 //			desenhar linhas, retangulos, triangulo, poligonos, circunferencias
 //			preencher a forma e limpar a tela
 
+//		# obs.: para terminar de desenhar um poligono, sera necessario clicar em "enter"
+//				assim o usuario podera iniciar uma nova forma geometrica
+
 //		# alem das opcoes disponiveis tambem e possivel realizar as operacoes de:
 
 //			translacao -> ao selecionar as setas do teclado (up, down, left, right)
@@ -23,6 +26,9 @@
 //			cisalhamento -> ao selecionar a tecla "c" e as setas (letf, right)
 //			reflexao -> ao selecionar a tecla "e" e as setas (letf, right)
 //			rotacao -> ao selecionar a tecla "w" e as setas (left, right)
+
+//			obs.: na opcao escala, existe um limite de reducao para evitar problemas
+//				 	relacionados a reducao total da forma
 
 //		# para preencher as formas geometricas com uma cor diferente da cor preta:
 //			cor vermelha -> selecionar a tecla "r" ou "R"
@@ -38,6 +44,9 @@
 
 //		# obs.: em operacoes que envolvem numeros flutuantes, o pixel nunca ira
 //				voltar para seu estado original gracas ao arredondamento
+
+//		# IMPORTANTE: sempre que comecar a desenhar uma forma geometrica, termine-a antes
+//						de tentar realizar outra tarefa
 
 // Bibliotecas utilizadas pelo OpenGL
 #ifdef __APPLE__
@@ -331,7 +340,8 @@ string printModo(int modo)
 	if(modo == CIR){return "Circunferencia";}
 	if(modo == PIN){return "Pintura";}
 	if(modo == -1){return "Reset";}
-	if(modo == 0){return "Saindo";}												
+	if(modo == 0){return "Saindo";}	
+	return 0;											
 }
 
 /*
