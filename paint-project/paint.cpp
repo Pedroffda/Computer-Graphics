@@ -4,6 +4,39 @@
  * Autor: Pedro Felipe
  */
 
+
+//	Guia
+ 
+// 		# inicialmente a funcao para desenhar linhas estara habilitada
+
+//		# para alterar a forma sera necessario apertar o botao direito 
+//		do mouse
+
+//		# as opcoes disponiveis sao: 
+
+//			desenhar linhas, retangulos, triangulo, poligonos, circunferencias
+//			preencher a forma e limpar a tela
+
+//		# alem das opcoes disponiveis tambem e possivel realizar as operacoes de:
+
+//			translacao -> ao selecionar as setas do teclado (up, down, left, right)
+//			escala -> ao selecionar a tecla "espaco" e as setas do teclado (letf, right)
+//			cisalhamento -> ao selecionar a tecla "c" e as setas (letf, right)
+//			reflexao -> ao selecionar a tecla "e" e as setas (letf, right)
+//			rotacao -> ao selecionar a tecla "w" e as setas (left, right)
+
+//		# para preencher as formas geometricas com uma cor diferente da cor preta:
+//			cor vermelha -> selecionar a tecla "r" ou "R"
+//			cor azul -> selecioar a tecla "b" ou "B"
+//			cor verde -> selecionar a tecla "g" ou "G"
+
+//		# obs.: e possivel realizar a combinacao dessas cores ao ativar varias cores
+//				ao mesmo tempo
+
+//		# lembre-se de desativar uma opcao depois de utiliza-la pois podem ocorrer confilos
+//			por exemplo, caso o usuario selecione ao mesmo tempo a opcao de cisalhamento e
+//			espaco, entao a funcao de ampliar sera executada prioritariamente
+
 // Bibliotecas utilizadas pelo OpenGL
 #ifdef __APPLE__
 #define GL_SILENCE_DEPRECATION
@@ -30,11 +63,11 @@ using namespace std;
 #define ESC 27
 #define ENTER 13
 #define SPACE 32
-#define C 67 
+#define PIN 6 
 
 
 //Enumeracao com os tipos de formas geometricas
-enum tipo_forma {LIN = 1, TRI = 2, RET = 3, POL = 4, CIR = 5, PIN = 6}; // Linha, Triangulo, Retangulo, Poligono, Circulo
+enum tipo_forma {LIN = 1, TRI = 2, RET = 3, POL = 4, CIR = 5}; // Linha, Triangulo, Retangulo, Poligono, Circulo
 
 //Verifica se foi realizado o primeiro clique do mouse
 bool click1 = false;
@@ -60,6 +93,15 @@ bool isCPressed = false;
 //Verifica se "r" foi pressionado 
 bool isRPressed = false;
 
+//Verifica se "g" foi pressionado 
+bool isGPressed = false;
+
+//Verifica se "b" foi pressionado 
+bool isBPressed = false;
+
+//Verifica se "w" foi pressionado 
+bool isWPressed = false;
+
 //Verifica se "e" foi pressionado 
 bool isEPressed = false;
 
@@ -68,6 +110,9 @@ int m_x, m_y;
 
 //Coordenadas do primeiro clique e do segundo clique do mouse
 int x_1, y_1, x_2, y_2, x_3, y_3;
+
+// Define a cor a er pinta
+float r=0, g=0, b=0;
 
 //Indica o tipo de forma geometrica ativa para desenhar
 int modo = LIN;
@@ -88,11 +133,6 @@ struct forma
 	int tipo;
 	float cx, cy;
 	forward_list<vertice> v; //lista encadeada de vertices
-};
-
-struct color{
-	vector<vertice> color_pts;
-	vector<float> color;
 };
 
 // Lista encadeada de formas geometricas
@@ -135,7 +175,6 @@ void pushVertice(int x, int y)
     updateCentroide(formas.front());
 }
 
-
 //Funcao para armazenar uma Linha na lista de formas geometricas
 void pushLinha(int x1, int y1, int x2, int y2)
 {
@@ -170,6 +209,7 @@ void pushPOL(std::vector<vertice> &pts){
     }
 }
 
+//Fucao para armazenar um Circulo na lista de formas geometricas
 void pushCIR(int x1, int y1, int x2, int y2)
 {
 	pushForma(CIR);
@@ -177,17 +217,15 @@ void pushCIR(int x1, int y1, int x2, int y2)
 	pushVertice(x2, y2);
 }
 
+//Fucao para armazenar um pixel colorida na lista de cores
 void pushPIN(int x1, int y1)
 {
-	pushForma(PIN);
-	pushVertice(x1, y1);
 	vertice v;
 	v.x = x1;
 	v.y = y1;
 	color_pts.push_back(v);
 }
 
-// 
 /*
  * Declaracoes antecipadas (forward) das funcoes (assinaturas das funcoes)
  */
@@ -196,27 +234,27 @@ void reshape(int w, int h);
 void display(void);
 void menu_popup(int value);
 void keyboard(unsigned char key, int x, int y);
+void special(int key, int x, int y);
 void mouse(int button, int state, int x, int y);
 void mousePassiveMotion(int x, int y);
 void drawPixel(int x, int y);
 // Funcao que percorre a lista de formas geometricas, desenhando-as na tela
 void drawFormas();
-// Funcao que implementa o Algoritmo Imediato para rasterizacao de segmentos de retas
+// Funcao que implementa de bresenham para rasterizacao de segmentos de retas
 void bresenham(int x1, int y1, int x2, int y2);
 void RETbresenham(int x1, int y1, int x2, int y2);
 void TRIbresenham(int x1, int y1, int x2, int y2, int x3, int y3);
-// void POLbresenham(vector<vertice> &pts);
 void POLbresenham(std::vector<int>& x, std::vector<int>& y);
+void CIRbresenham(int x1, int y1, int r);
+// Funcoes que implementam transformacoes geometricas na forma
 void translateFormaGeometrica(int tx, int ty, forma& f);
-void special(int key, int x, int y);
 void scaleFormaGeometrica(float sx, float sy, forma& f);
 void shearFormaGeometrica(float shx, float shy, forma& f);
 void rotateFormaGeometrica(float theta, forma& f);
-void updateCentroide(forma& f);
-void POLbresenham(std::vector<std::vector<vertice> >& polList);
 void refleteFormaGeometrica(char eixo, forma& f);
-void CIRbresenham(int x1, int y1, int r);
-void floodFill(int x, int y, const vector<float>& fillColor);
+void floodFill(int x, int y);
+// Atualizar o centroide
+void updateCentroide(forma& f);
 
 /*
  * Funcao principal
@@ -247,7 +285,6 @@ int main(int argc, char** argv)
 	glutAddMenuEntry("Limpar", -1);
 	glutAddMenuEntry("Sair", 0);
 	glutAttachMenu(GLUT_RIGHT_BUTTON);
-
 
 	glutMainLoop(); // executa o loop do OpenGL
 	return EXIT_SUCCESS; // retorna 0 para o tipo inteiro da funcao main();
@@ -306,13 +343,11 @@ void menu_popup(int value)
 	if (value == 0) exit(EXIT_SUCCESS);
 	if(value == -1){
 		glClear(GL_COLOR_BUFFER_BIT);
-		formas.clear(); // Remove todas as formas da list
-		// polList.clear();
+		formas.clear(); // Remove todas as formas da lista
+		color_pts.clear(); // Remove todas as cores da lista
 	}
 	modo = value;
-	// printf("%d", modo);
 }
-
 
 /*
  * Controle das teclas comuns do teclado
@@ -332,25 +367,46 @@ void keyboard(unsigned char key, int x, int y)
 		printf ("ESPACO\n");
     	isSpacePressed = !isSpacePressed;
     	break;
-    case 67:
+    case 67: // c
  	case 99:
 		printf ("C\n");
     	isCPressed = !isCPressed;
     	printf(isCPressed ? "C: true" : "C: false"); // prints true
     	break;
-    case 114:
+    case 114: // r
  	case 82:
     	isRPressed = !isRPressed;
     	printf(isRPressed ? "R: true" : "R: false"); // prints true
+    	isRPressed ? r=1 : r=0;
     	break;
-    case 69:
+    case 69: // e
  	case 101:
     	isEPressed = !isEPressed;
     	printf(isEPressed ? "E: true" : "E: false"); // prints true
     	break;
+    case 87: // w
+ 	case 119: 
+ 		isWPressed = !isWPressed;
+ 		printf(isWPressed ? "W: true" : "W: false"); // prints true
+    	break;
+    case 66: // b
+ 	case 98:
+ 		isBPressed = !isBPressed;
+ 		printf(isBPressed ? "B: true" : "B: false"); // prints true
+    	isBPressed ? b=1 : b=0;
+    	break;
+    case 71: // g
+ 	case 103:
+ 		isGPressed = !isGPressed;
+ 		printf(isGPressed ? "G: true" : "G: false"); // prints true
+    	isGPressed ? g=1 : g=0;
+    	break;
 	}
 }
 
+/*
+ * Controle das teclas especiais do teclado
+ */
 void special(int key, int x, int y)
 {
     switch(key)
@@ -366,14 +422,14 @@ void special(int key, int x, int y)
     case GLUT_KEY_LEFT:
         if(isSpacePressed) scaleFormaGeometrica(0.9, 0.9, formas.front());
         else if(isEPressed) refleteFormaGeometrica( 'y' , formas.front());
-    	else if(isRPressed) rotateFormaGeometrica(90, formas.front());
+    	else if(isWPressed) rotateFormaGeometrica(90, formas.front());
         else if(isCPressed) shearFormaGeometrica(-0.7, 0.0, formas.front());
 		else translateFormaGeometrica(-1, 0 , formas.front());   
         break;
     case GLUT_KEY_RIGHT:
         if(isSpacePressed) scaleFormaGeometrica(1.1, 1.1, formas.front());
-        else if(isRPressed) rotateFormaGeometrica(270, formas.front());	
-		else if(isEPressed) refleteFormaGeometrica( 'x' , formas.front());	
+		else if(isEPressed) refleteFormaGeometrica( 'x' , formas.front());
+        else if(isWPressed) rotateFormaGeometrica(270, formas.front());		
         else if(isCPressed) shearFormaGeometrica(0.7, 0.0, formas.front());
 		else translateFormaGeometrica(1, 0, formas.front());   
         break;
@@ -442,10 +498,8 @@ void mouse(int button, int state, int x, int y)
 					x_2 = x;
 					y_2 = height - y - 1;
 					printf("Clique 2(%d, %d)\n", x_2, y_2);
-					// pushRet(x_1, y_1, x_2, y_2);
 					drawTri1 = false;
 					drawTri2 = true;
- 					// glutPostRedisplay();
 				}else if(drawTri2){
 					x_3 = x;
 					y_3 = height - y - 1;
@@ -467,12 +521,12 @@ void mouse(int button, int state, int x, int y)
 			if (state == GLUT_DOWN){
 				vertice vi = {x, height - y - 1};
 				vector<vertice> pol; // lista encadeada de v?rtices para o pol?gono atual
-				if(!drawPol){ // enter falso  // indica o inicio de um poligono  
+				if(!drawPol){ // indica o inicio de um poligono  
                     pol.push_back(vi);
                     pushPOL(pol);
                     printf("Clique (%d, %d)\n", x, height - y - 1);
                     drawPol = true;
-				}else{ // enter verdadeiro
+				}else{ //
 					// Continua atualizando o pol?gono em constru??o
                     formas.front().v.push_front(vi);
                     updateCentroide(formas.front());
@@ -507,27 +561,11 @@ void mouse(int button, int state, int x, int y)
 				y_1 = height - y - 1;
 				printf("Clique 1(%d, %d)\n", x_1, y_1);
 				pushPIN(x_1, y_1);
-				vector<float> color = {1.0, 0.0 , 0.0}; // red
-				floodFill(x_1, y_1, color);
+				floodFill(x_1, y_1);
 			}
 			break;
 		}
 		break;
-       // case GLUT_MIDDLE_BUTTON:
-       //     if (state == GLUT_DOWN) {
-       //     		printf("MIDDLE");
-       //     		printf("Clique (%d, %d)\n", x, height - y - 1);
-       //     		translateFormaGeometrica(1, 0, formas.front());
-       //         glutPostRedisplay();
-       //     }
-       // break;
-//
-//        case GLUT_RIGHT_BUTTON:
-//            if (state == GLUT_DOWN) {
-//                glutPostRedisplay();
-//            }
-//        break;
-
 	}
 }
 
@@ -556,6 +594,16 @@ void drawPixel(int x, int y)
  */
 void drawFormas()
 {
+	for(vector<vertice>::iterator it = color_pts.begin(); it != color_pts.end(); ++it) {
+	    int x = it->x;
+	    int y = it->y;
+	    glPointSize(1.0f);
+	    glColor3f(r, g, b);
+	    glBegin(GL_POINTS); // Seleciona a primitiva GL_POINTS para desenhar
+			glVertex2i(x, y);
+		glEnd();  // indica o fim do ponto
+	}
+	glColor3f(0.0, 0.0, 0.0);
 	int raioEXT = sqrt(pow(x_1 - m_x, 2) + pow(y_1 - m_y, 2));
 	//Apos o primeiro clique, desenha a reta com a posicao atual do mouse
 	if(click1) bresenham(x_1, y_1, m_x, m_y);
@@ -565,6 +613,7 @@ void drawFormas()
 	else if(drawTri2) TRIbresenham(x_1, y_1, x_2, y_2 ,m_x, m_y);
 	else if(drawPol) bresenham(formas.front().v.front().x, formas.front().v.front().y, m_x, m_y);
 
+	
 	//Percorre a lista de formas geometricas para desenhar
 	for(forward_list<forma>::iterator f = formas.begin(); f != formas.end(); f++)
 	{
@@ -599,7 +648,7 @@ void drawFormas()
 					x.push_back(v->x); 
 					y.push_back(v->y); 
 				}
-				//Desenha o triangulo apos dois cliques
+				//Desenha o triangulo apos tres cliques
 				TRIbresenham(x[0], y[0], x[1], y[1], x[2], y[2]);
 				break;
 			case POL:
@@ -609,7 +658,7 @@ void drawFormas()
 					y.push_back(v->y); 
 					// printf("x: %d, y: %d \n",v->x, v->y);
 				}
-				//Desenha um poligono apos dois cliques
+				//Desenha um poligono
 				POLbresenham(x, y);
 				break;
 			case CIR:
@@ -619,24 +668,18 @@ void drawFormas()
 					y.push_back(v->y); 
 					// printf("x: %d, y: %d \n",v->x, v->y);
 				}
-				//Desenha um poligono apos dois cliques
+				//Desenha um circulo apos dois cliques
 				int raio = sqrt(pow(x[0] - x[1], 2) + pow(y[0] - y[1], 2));
 				CIRbresenham(x[1], y[1], raio);
 				break;
 		}
 	}
-	for(vector<vertice>::iterator it = color_pts.begin(); it != color_pts.end(); ++it) {
-	    int x = it->x;
-	    int y = it->y;
-	    glPointSize(1.0f);
-	    glColor3f(1.0, 0.0, 0.0);
-	    glBegin(GL_POINTS); // Seleciona a primitiva GL_POINTS para desenhar
-			glVertex2i(x, y);
-		glEnd();  // indica o fim do ponto
-	}
 
 } 
 
+/*
+ *Funcao que desenha uma reta entre dois pontos
+ */
 void bresenham(int x1, int y1, int x2, int y2)
 {	
 	printf("entrei no bresenham\n");
@@ -700,7 +743,9 @@ void bresenham(int x1, int y1, int x2, int y2)
 	}
 	drawPixel(x2, y2);
 }
-
+/*
+ *Funcao que desenha um retangulo atraves do bresenham
+ */
 void RETbresenham(int x1, int y1, int x2, int y2)
 {	
 	bresenham(x1, y1, x2, y1);
@@ -709,6 +754,9 @@ void RETbresenham(int x1, int y1, int x2, int y2)
 	bresenham(x2, y1, x2, y2);	
 }
 
+/*
+ *Funcao que desenha um triangulo atraves do bresenham
+ */
 void TRIbresenham(int x1, int y1, int x2, int y2, int x3, int y3)
 {	
 	bresenham(x1, y1, x2, y2);
@@ -717,6 +765,9 @@ void TRIbresenham(int x1, int y1, int x2, int y2, int x3, int y3)
 
 }
 
+/*
+ *Funcao que desenha um poligono atraves do bresenham
+ */
 void POLbresenham(std::vector<int>& x, std::vector<int>& y) {
     int n = x.size();
 
@@ -728,6 +779,9 @@ void POLbresenham(std::vector<int>& x, std::vector<int>& y) {
     bresenham(x.back(), y.back(), x.front(), y.front());
 }
 
+/*
+ *Funcao que desenha um circulo
+ */
 void CIRbresenham(int xc, int yc, int r)
 {
 	printf("entrei no circulo\n");
@@ -765,7 +819,9 @@ void CIRbresenham(int xc, int yc, int r)
     // Caso especial: adiciona o ponto (xc + r, yc)
     drawPixel(xc + r, yc);
 }
-
+/*
+ *Funcao que translada uma forma geometrica
+ */
 void translateFormaGeometrica(int tx, int ty, forma& f) {
 	if(f.v.empty()) return;
 	for (auto it = f.v.begin(); it != f.v.end(); ++it) {
@@ -774,10 +830,11 @@ void translateFormaGeometrica(int tx, int ty, forma& f) {
     	v.y += ty;
 	}
 	// updatePolList();
-	glutPostRedisplay();
-	
+	glutPostRedisplay();	
 }
-
+/*
+ *Funcao que faz operacoes de escala em uma forma geometrica
+ */
 void scaleFormaGeometrica(float sx, float sy, forma& f)
 {
     if (f.v.empty()) return;
@@ -800,6 +857,9 @@ void scaleFormaGeometrica(float sx, float sy, forma& f)
     glutPostRedisplay();
 }
 
+/*
+ *Funcao que rotaciona uma forma geometrica
+ */
 void rotateFormaGeometrica(float theta, forma& f) {
     if (f.v.empty()) return;
     theta = theta * 3.14 / 180.0f; // converte para radianos
@@ -815,6 +875,9 @@ void rotateFormaGeometrica(float theta, forma& f) {
     glutPostRedisplay();
 }
 
+/*
+ *Funcao que realiza a reflexao em uma forma geometrica
+ */
 void refleteFormaGeometrica(char eixo, forma& f) {
     if (f.v.empty()) return;
     printf("char: %c\n", eixo);
@@ -839,6 +902,9 @@ void refleteFormaGeometrica(char eixo, forma& f) {
     glutPostRedisplay();
 }
 
+/*
+ *Funcao que realiza o cisalhamento em uma forma geometrica
+ */
 void shearFormaGeometrica(float sx, float sy, forma& f) {
     if (f.v.empty()) return;
     for (auto it = f.v.begin(); it != f.v.end(); ++it) {
@@ -858,28 +924,30 @@ void shearFormaGeometrica(float sx, float sy, forma& f) {
     glutPostRedisplay();
 }
 
-void floodFill(int x, int y, const vector<float>& fillColor) {
+/*
+ *Funcao que preenche uma forma geometrica
+ */
+void floodFill(int x, int y) {
+	// verifica se o pixel esta nas dimensoes da tela
+	if(x < 0 || y < 0 || x > width || y > height){return;}
     float pixelColor[3];
     glReadPixels(x, y, 1, 1, GL_RGB, GL_FLOAT, pixelColor);
     // verifica se a cor atual é diferente da cor de preenchimento
-    if (pixelColor[0] != fillColor[0] || pixelColor[1] != fillColor[1] || pixelColor[2] != fillColor[2]) {
+    if (pixelColor[0] != r || pixelColor[1] != g || pixelColor[2] != b) {
         // verifica se a cor atual é igual à cor da borda
-        if (pixelColor[0] == 0.0f && pixelColor[1] == 0.0f && pixelColor[2] == 0.0f) {
-            return;
-        }
+        if (pixelColor[0] == 0.0f && pixelColor[1] == 0.0f && pixelColor[2] == 0.0f) {return;}
         // preenche o pixel com a cor de preenchimento
         glPointSize(1.0f);
-        glColor3f(fillColor[0], fillColor[1], fillColor[2]);
+        glColor3f(r, g, b);
         glBegin(GL_POINTS);
             glVertex2i(x, y);
         glEnd();
-        pushPIN(x,y);
-        // glFlush();
+        pushPIN(x,y);				
         glutSwapBuffers();
         // chama a função para os pixels adjacentes
-        floodFill(x + 1, y, fillColor);
-        floodFill(x - 1, y, fillColor);
-        floodFill(x, y + 1, fillColor);
-        floodFill(x, y - 1, fillColor);
+        floodFill(x + 1, y);
+        floodFill(x - 1, y);
+        floodFill(x, y + 1);
+        floodFill(x, y - 1);
     }
 }
